@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tunnelrat"
+dynamic = ["version"]
+description = "SSH Connection and Forward Manager"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "attrs",
+    "fabric",
+    "loguru",
+    "pydantic",
+    "pydantic-config",
+    "pyyaml",
+    "tabulate",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "pytest",
+    "ruff",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+select = [
+    "E", # Pycodestyle errors
+    "F", # Pyflakes
+    "I", # Isort
+    "PL", # Pylint
+    "UP", # Pyupgrade
+]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION.txt"]}
