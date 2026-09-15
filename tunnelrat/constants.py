@@ -40,3 +40,6 @@ class StepTypes(StrEnum):
     WAIT = "wait"
     BLOCK = "block"
     COMMENT = "comment"
+
+
+ALL_ENUMS = [StepTypes, ForwardTypes, ExecutableTypes, OSTypes]
