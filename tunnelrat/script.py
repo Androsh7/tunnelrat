@@ -32,8 +32,9 @@ class BlockConfig(BaseModel):
         default=None,
         description="Seconds to block for, blocks until interrupted with CTRL + C when left out",
     )
-    exit_on_timeout: bool = Field(
-        description="Whether reaching the timeout ends the script normally instead of raising",
+    raise_on_timeout: bool = Field(
+        default=True,
+        description="Whether reaching the timeout raises an exception rather than continuing silently",
     )
 
 
@@ -159,6 +160,17 @@ class Script:
                 else:
                     logger.warning("DRY RUN - NO COMMAND EXECUTED")
 
+            # Run a batch command
+            if step.step_type == StepTypes.BATCH_COMMAND:
+                logger.info(
+                    f"Running batch command on hosts ({', '.join(step.config.connection_name_list)}): {step.config.script}"
+                )
+                for connection_name in step.config.connection_name_list:
+                    if not dry_run:
+                        await connection_manager.run_command(step.config.to_command_config(connection_name))
+                    else:
+                        logger.warning("DRY RUN - NO BATCH COMMAND EXECUTED")
+
             # Create a forward
             elif step.step_type == StepTypes.FORWARD:
                 logger.info(f"Creating forward: {step.config}")
@@ -182,8 +194,8 @@ class Script:
                             await asyncio.Event().wait()
                     else:
                         await asyncio.Event().wait()
-                except TimeoutError:
-                    if not step.config.exit_on_timeout:
+                except asyncio.TimeoutError:
+                    if step.config.raise_on_timeout:
                         raise
                 except asyncio.CancelledError:
                     asyncio.current_task().uncancel()

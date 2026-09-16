@@ -36,7 +36,7 @@ class BatchCommandConfig(CommandBaseConfig):
 
     connection_name_list: list[str] = Field(
         alias="via",
-        description="Names of the hosts from the hosts block to run the script on",
+        description="Names of the hosts from the hosts block to run the script on", min_length=2
     )
     output_dir: Path | None = Field(
         default=None,
@@ -44,3 +44,16 @@ class BatchCommandConfig(CommandBaseConfig):
     )
     stdout_output: bool = Field(default=False, description="Write the standard output of each host into output_dir")
     stderr_output: bool = Field(default=False, description="Write the standard error of each host into output_dir")
+
+    def to_command_config(self, connection_name: str) -> CommandConfig:
+        """Returns a CommandConfig model for the given connection_name"""
+        assert connection_name in self.connection_name_list
+        config_dict = self.model_dump()
+        config_dict.update({"via": connection_name})
+        config_dict.update(
+            {"stderr_file": self.output_dir / f"{connection_name}_stderr.txt" if self.stderr_output else None}
+        )
+        config_dict.update(
+            {"stdout_file": self.output_dir / f"{connection_name}_stdout.txt" if self.stdout_output else None}
+        )
+        return CommandConfig(**config_dict)

@@ -52,7 +52,6 @@ steps:
       stderr_file: ./output/database_stderr.txt
 
   # Run the same script on several hosts at once
-  # Not executed yet, the batch step type is still being implemented
   - batch:
       via:
         - bastion
@@ -90,7 +89,7 @@ steps:
       script: echo "the tunnels are up"
       stdout_print: true
 
-  # Hold the tunnels open, exit with CTRL + C or after the timeout
+  # Hold the tunnels open, exit with CTRL + C
   - block:
       timeout: 3600
-      exit_on_timeout: true
+      raise_on_timeout: true
