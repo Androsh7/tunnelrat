@@ -41,7 +41,7 @@ def format_type(annotation: Any) -> str:
     """
     origin = get_origin(annotation)
 
-    # Union[int, str] and int | str
+    # Unions like Union[int, str] and int | str
     if origin is Union or origin is types.UnionType:
         return " or ".join(format_type(argument) for argument in get_args(annotation))
 
@@ -161,12 +161,11 @@ def format_docs_overview() -> str:
         [
             "Models:",
             f" - step types: {step_names}",
-            f" - hosts block: {DocModelTypes.HOST.value}",
         ]
     )
     usage_rows = [
         ("tunnelrat docs --model <name>", "print the yaml keys of one model"),
-        (f"tunnelrat docs --model {DocModelTypes.ALL.value}", "print the yaml keys of every model"),
+        ("tunnelrat docs --model all", "print the yaml keys of every model"),
         ("tunnelrat docs --example", "print a full example script"),
     ]
     invocation_width = max(len(invocation) for invocation, _ in usage_rows)

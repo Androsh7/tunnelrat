@@ -28,8 +28,10 @@ class CommandConfig(CommandBaseConfig):
     stdout_file: Path | None = Field(default=None, description="Local file to write the standard output to")
     stderr_file: Path | None = Field(default=None, description="Local file to write the standard error to")
 
-    def __str__(self):
-        return f"Running command on {self.connection_name} using {self.executable}{' (sudo enabled)' if self.sudo else ''}\n{self.script}"
+    def __str__(self) -> str:
+        """Return the command described as a header line and the script body"""
+        sudo_note = " (sudo enabled)" if self.sudo else ""
+        return f"Running command on {self.connection_name} using {self.executable}{sudo_note}\n{self.script}"
 
 
 class BatchCommandConfig(CommandBaseConfig):
@@ -45,8 +47,15 @@ class BatchCommandConfig(CommandBaseConfig):
     stdout_output: bool = Field(default=False, description="Write the standard output of each host into output_dir")
     stderr_output: bool = Field(default=False, description="Write the standard error of each host into output_dir")
 
-    def __str__(self):
-        return f"Running command on ({', '.join(self.connection_name_list)}){' (sudo enabled)' if self.sudo else ''}:\n{self.script}"
+    def __str__(self) -> str:
+        """Return the batch command described as a header line and the script body
+
+        Returns:
+            The hosts and sudo flag on one line, then the script
+        """
+        sudo_note = " (sudo enabled)" if self.sudo else ""
+        connection_names = ", ".join(self.connection_name_list)
+        return f"Running command on ({connection_names}){sudo_note}:\n{self.script}"
 
     def to_command_config(self, connection_name: str) -> CommandConfig:
         """Returns a CommandConfig model for the given connection_name"""

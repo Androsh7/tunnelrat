@@ -19,7 +19,7 @@ from tunnelrat.docs.help import (
     format_example_script,
     model_to_specification_table,
 )
-from tunnelrat.exceptions import TunnelratBackendAbort
+from tunnelrat.exceptions import TunnelratBackendAbortError
 from tunnelrat.script import STEP_TO_MODEL, Script
 from tunnelrat.ssh.connection_manager import connection_manager
 from tunnelrat.ui.script_ui import ScriptUI
@@ -45,20 +45,22 @@ async def main():
 
     args = parser.parse_args()
 
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     console = Console()
 
     if args.command == "docs":
         if args.example:
-            print(format_example_script())
+            sys.stdout.write(format_example_script() + "\n")
             sys.exit(0)
         if args.model is None:
-            print(format_docs_overview())
+            sys.stdout.write(format_docs_overview() + "\n")
             sys.exit(0)
-        print(format_all_enums_as_assignments() + "\n")
+        sys.stdout.write(format_all_enums_as_assignments() + "\n\n")
         if args.model == "all":
-            print(format_all_model_tables())
+            sys.stdout.write(format_all_model_tables() + "\n")
         else:
-            print(model_to_specification_table(model=STEP_TO_MODEL[args.model], title=args.model))
+            sys.stdout.write(model_to_specification_table(model=STEP_TO_MODEL[args.model], title=args.model) + "\n")
         sys.exit(0)
 
     elif args.command == "script":
@@ -67,7 +69,7 @@ async def main():
             try:
                 await script.run_script()
                 live.refresh()
-            except TunnelratBackendAbort:
+            except TunnelratBackendAbortError:
                 pass
             except asyncio.CancelledError:
                 asyncio.current_task().uncancel()

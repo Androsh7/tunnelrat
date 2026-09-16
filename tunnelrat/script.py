@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 # Project libraries
 from tunnelrat.constants import StepTypes
-from tunnelrat.exceptions import TunnelratBackendAbort
+from tunnelrat.exceptions import TunnelratBackendAbortError
 from tunnelrat.ssh.command import BatchCommandConfig, CommandConfig
 from tunnelrat.ssh.connection import SshConnectionConfig
 from tunnelrat.ssh.connection_manager import connection_manager
@@ -24,7 +24,12 @@ class WaitConfig(BaseModel):
 
     time_s: int = Field(alias="time", description="Seconds to pause before moving on to the next step")
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the wait described as a line of text
+
+        Returns:
+            The number of seconds the step waits for
+        """
         return f"Waiting for {self.time_s} seconds"
 
 
@@ -41,7 +46,12 @@ class BlockConfig(BaseModel):
         description="Whether reaching the timeout raises an exception rather than continuing silently",
     )
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the block described as a line of text
+
+        Returns:
+            The timeout the step blocks until, or nothing when it blocks until interrupted
+        """
         return f"Blocking until interrupted (timeout {self.timeout_s} seconds)"
 
 
@@ -50,7 +60,12 @@ class CommentConfig(BaseModel):
 
     body: str = Field(description="Text to print when the step is reached")
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """Return the comment text
+
+        Returns:
+            The body of the comment
+        """
         return self.body
 
 
@@ -90,7 +105,7 @@ class Step(BaseModel):
         Raises:
             ValueError: If the key of the mapping is not a known step type
         """
-        step_type = StepTypes(list(step_dict.keys())[0])
+        step_type = StepTypes(next(iter(step_dict)))
         config_model = STEP_TO_MODEL[step_type]
 
         return cls(
@@ -122,7 +137,7 @@ class Script:
         Raises:
             KeyError: If the file has no hosts block or no steps block
         """
-        with open(file=yaml_path, mode="rb") as yaml_file:
+        with Path(yaml_path).open(mode="rb") as yaml_file:
             raw_text = yaml_file.read()
             script_dict = yaml.safe_load(raw_text)
 
@@ -136,68 +151,116 @@ class Script:
         )
 
     async def run_script(self):
-        """Open every host connection, run every step in order and then clean up
+        """Run every step in order, mark its outcome and then close every connection
 
         Raises:
-            KeyError: If a step has a type that has no execution path
+            TunnelratBackendAbortError: If any step fails, after marking that step failed
         """
         for step in self.step_list:
             try:
                 step.started = True
-
-                # Create an SSH connection
-                if step.step_type == StepTypes.CREATE_CONNECTION:
-                    await connection_manager.create_connection(step.config)
-
-                # Run a command
-                elif step.step_type == StepTypes.COMMAND:
-                    await connection_manager.run_command(step.config)
-
-                # Run a batch command
-                elif step.step_type == StepTypes.BATCH_COMMAND:
-                    for connection_name in step.config.connection_name_list:
-                        await connection_manager.run_command(step.config.to_command_config(connection_name))
-
-                # Create a forward
-                elif step.step_type == StepTypes.CREATE_FORWARD:
-                    await connection_manager.create_forward(step.config)
-
-                # Wait for some time
-                elif step.step_type == StepTypes.WAIT:
-                    elapsed_time = 0
-                    start_time = time()
-                    while elapsed_time < step.config.time_s:
-                        elapsed_time = time() - start_time
-                        step.progress = f"{int(step.config.time_s - elapsed_time)} seconds remaining"
-                        await asyncio.sleep(0.25)
-
-                # Block with an optional timeout
-                elif step.step_type == StepTypes.BLOCK:
-                    start_time = time()
-                    elapsed_time = 0
-                    try:
-                        while step.config.timeout_s is None or elapsed_time < step.config.timeout_s:
-                            elapsed_time = time() - start_time
-                            step.progress = f"{int(elapsed_time)} seconds elapsed"
-                            await asyncio.sleep(0.25)
-                        if step.config.raise_on_timeout:
-                            raise asyncio.TimeoutError(f"Blocking timed out after {int(elapsed_time)} seconds")
-                    except asyncio.CancelledError:
-                        asyncio.current_task().uncancel()
-
-                # Write a Comment
-                elif step.step_type == StepTypes.COMMENT:
-                    pass
-
-                else:
-                    raise KeyError(f"Invalid step type {step.step_type}")
-
-                # Mark task as complete
+                await self._execute_step(step)
                 step.completed = True
                 step.progress = ""
             except Exception as exc:
                 step.failed = True
                 step.progress = f"Exception: {exc}"
-                raise TunnelratBackendAbort(f"Exception: {exc}") from exc
+                raise TunnelratBackendAbortError(f"Exception: {exc}") from exc
 
         await connection_manager.close_all()
+
+    async def _execute_step(self, step: Step):
+        """Run one step by dispatching on its type
+
+        Args:
+            step: The step to run
+
+        Raises:
+            KeyError: If a step has a type that has no execution path
+        """
+        handler_by_type = {
+            StepTypes.CREATE_CONNECTION: self._execute_create_connection,
+            StepTypes.COMMAND: self._execute_command,
+            StepTypes.BATCH_COMMAND: self._execute_batch,
+            StepTypes.CREATE_FORWARD: self._execute_create_forward,
+            StepTypes.WAIT: self._execute_wait,
+            StepTypes.BLOCK: self._execute_block,
+            StepTypes.COMMENT: self._execute_comment,
+        }
+        if step.step_type not in handler_by_type:
+            raise KeyError(f"Invalid step type {step.step_type}")
+        await handler_by_type[step.step_type](step)
+
+    async def _execute_create_connection(self, step: Step):
+        """Open the ssh connection described by one step
+
+        Args:
+            step: The connection step to run
+        """
+        await connection_manager.create_connection(step.config)
+
+    async def _execute_command(self, step: Step):
+        """Run the command described by one step on one host
+
+        Args:
+            step: The command step to run
+        """
+        await connection_manager.run_command(step.config)
+
+    async def _execute_batch(self, step: Step):
+        """Run the batch command described by one step on each of its hosts
+
+        Args:
+            step: The batch step to run
+        """
+        for connection_name in step.config.connection_name_list:
+            await connection_manager.run_command(step.config.to_command_config(connection_name))
+
+    async def _execute_create_forward(self, step: Step):
+        """Open the tunnel described by one step
+
+        Args:
+            step: The forward step to run
+        """
+        await connection_manager.create_forward(step.config)
+
+    async def _execute_wait(self, step: Step):
+        """Pause for the number of seconds described by one step, counting down as it waits
+
+        Args:
+            step: The wait step to run
+        """
+        elapsed_time = 0
+        start_time = time()
+        while elapsed_time < step.config.time_s:
+            elapsed_time = time() - start_time
+            step.progress = f"{int(step.config.time_s - elapsed_time)} seconds remaining"
+            await asyncio.sleep(0.25)
+
+    async def _execute_block(self, step: Step):
+        """Hold the script open until interrupted or until the timeout is reached
+
+        Args:
+            step: The block step to run
+
+        Raises:
+            TimeoutError: If the timeout is reached and the step is set to raise on timeout
+        """
+        start_time = time()
+        elapsed_time = 0
+        try:
+            while step.config.timeout_s is None or elapsed_time < step.config.timeout_s:
+                elapsed_time = time() - start_time
+                step.progress = f"{int(elapsed_time)} seconds elapsed"
+                await asyncio.sleep(0.25)
+            if step.config.raise_on_timeout:
+                raise TimeoutError(f"Blocking timed out after {int(elapsed_time)} seconds")
+        except asyncio.CancelledError:
+            asyncio.current_task().uncancel()
+
+    async def _execute_comment(self, step: Step):
+        """Do nothing because a comment only shows its text in the panel
+
+        Args:
+            step: The comment step, shown by the panel and otherwise left alone
+        """

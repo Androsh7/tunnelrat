@@ -18,6 +18,8 @@ from tunnelrat.ssh.forward import ForwardConfig
 
 @define
 class ConnectionManager:
+    """Hold every open ssh connection and run steps against them"""
+
     connection_list: list[SshConnection] = field(
         init=False,
         factory=list,
@@ -29,17 +31,35 @@ class ConnectionManager:
     _lock: threading.Lock = field(init=False, factory=threading.Lock, validator=validators.instance_of(threading.Lock))
 
     async def create_connection(self, config: SshConnectionConfig):
+        """Open one ssh connection and keep track of it
+
+        Args:
+            config: The host to connect to
+        """
         with self._lock:
             connection = SshConnection.from_config(config)
             await connection.create_connection()
             self.connection_list.append(connection)
 
     async def create_forward(self, config: ForwardConfig):
+        """Open one tunnel through an already open connection
+
+        Args:
+            config: The tunnel to open, naming the host to tunnel through
+        """
         with self._lock:
             connection = self.get_connection(config.connection_name)
             await connection.create_forward(config)
 
     async def run_command(self, config: CommandConfig):
+        """Run one command on the host it names and write any captured output
+
+        Args:
+            config: The command to run, naming the host and the output files
+
+        Raises:
+            KeyError: If the host has an operating system with no command builder
+        """
         connection = self.get_connection(config.connection_name)
 
         if connection.config.os == OSTypes.WINDOWS:
@@ -56,12 +76,24 @@ class ConnectionManager:
             config.stderr_file.write_text(result.stderr)
 
     def get_connection(self, name: str) -> SshConnection:
+        """Return the open connection with one name
+
+        Args:
+            name: The identifier of the host to look up
+
+        Raises:
+            KeyError: If no open connection has that name
+
+        Returns:
+            The matching open connection
+        """
         for connection in self.connection_list:
             if connection.config.name == name:
                 return connection
         raise KeyError(f'No SSH connection found with name "{name}"')
 
     async def close_all(self):
+        """Close every open connection and forget them all"""
         with self._lock:
             for connection in self.connection_list:
                 await connection.close()

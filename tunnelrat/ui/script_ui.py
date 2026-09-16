@@ -23,7 +23,7 @@ def steps_panel(step_list: list[Step]):
     grid.add_column(justify="left")  # progress
     grid.add_column(justify="left")  # command details
     grid.add_column(justify="left")  # status
-    for index, step in enumerate(step_list):
+    for step in step_list:
         # get progress icon
         if step.step_type == StepTypes.COMMENT:
             progress = Text(" ")
@@ -43,7 +43,8 @@ def steps_panel(step_list: list[Step]):
             Text(step.progress, style="yellow"),
         )
 
-    header = Text.assemble(("Steps", "bold"), (f" - {index + 1}/{len(step_list)}", "dim"))
+    completed_count = sum(1 for step in step_list if step.completed)
+    header = Text.assemble(("Steps", "bold"), (f" - {completed_count}/{len(step_list)}", "dim"))
     return Group(header, grid)
 
 
@@ -63,6 +64,8 @@ def hosts_panel() -> Table:
 
 @define
 class ScriptUI:
+    """Render the live panel that shows a script running"""
+
     script: Script = field(validator=validators.instance_of(Script))
 
     def render(self) -> Panel[Table[Group[Text, Table], Group[Text, Table]]]:

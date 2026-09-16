@@ -18,11 +18,15 @@ MAX_DESCRIPTION_COLUMN_WIDTH = 60
 
 
 class OSTypes(StrEnum):
+    """Enumerate the operating systems a host can run"""
+
     WINDOWS = "windows"
     LINUX = "linux"
 
 
 class ExecutableTypes(StrEnum):
+    """Enumerate the interpreters a command step can be run with"""
+
     POWERSHELL = "powershell"
     CMD = "cmd"
     PYTHON = "python"
@@ -32,12 +36,16 @@ class ExecutableTypes(StrEnum):
 
 
 class ForwardTypes(StrEnum):
+    """Enumerate the directions a tunnel can forward traffic"""
+
     LOCAL = "local"
     REMOTE = "remote"
 
 
 # Script
 class StepTypes(StrEnum):
+    """Enumerate the kinds of step a script can hold"""
+
     CREATE_CONNECTION = "connect"
     CREATE_FORWARD = "forward"
     COMMAND = "command"
