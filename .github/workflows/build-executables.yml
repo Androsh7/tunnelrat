@@ -1,0 +1,155 @@
+# Compile tunnelrat into distributable executables:
+#   - Linux: a onefile binary for {glibc, musl} x {x86_64, arm64}, built inside the
+#     androsh7/nuitka-compiler images (aarch64 built on native ARM runners).
+#   - Windows: a --standalone build for {x86_64, arm64}, wrapped in an Inno Setup installer.
+#
+# On a merge to main this builds every target and uploads it as a workflow artifact.
+# tag.yml also calls this workflow with attach_to_release=true once it has cut a release,
+# so the same executables are attached to the GitHub Release for the new tag.
+
+name: Build executables
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    # Version bumps are handled by tag.yml, which calls this workflow to build and attach.
+    paths-ignore:
+      - VERSION.txt
+      - CHANGELOG.md
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Ref (tag or SHA) to build
+        type: string
+        required: false
+        default: ""
+      attach_to_release:
+        description: Attach the built executables to a GitHub Release
+        type: boolean
+        required: false
+        default: false
+      release_tag:
+        description: Tag of the release to attach the executables to
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  group: build-executables-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.architecture }} ${{ matrix.library_c }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    container:
+      image: docker.io/androsh7/nuitka-compiler:latest-${{ matrix.image_architecture }}-${{ matrix.image_libc }}-py3.13
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            architecture: x86_64
+            image_architecture: x86_64
+            library_c: glibc
+            image_libc: glibc-2.17
+          - runner: ubuntu-latest
+            architecture: x86_64
+            image_architecture: x86_64
+            library_c: musl
+            image_libc: musl-1.2
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+            image_architecture: aarch64
+            library_c: glibc
+            image_libc: glibc-2.17
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+            image_architecture: aarch64
+            library_c: musl
+            image_libc: musl-1.2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Install tunnelrat and its dependencies
+        shell: sh
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install .
+
+      - name: Build onefile executable
+        shell: sh
+        run: python3 compile_script.py --operating-system linux --architecture ${{ matrix.architecture }} --library-c ${{ matrix.library_c }} --build-mode onefile
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelrat-linux-${{ matrix.architecture }}-${{ matrix.library_c }}
+          path: dist/tunnelrat-*-linux-*
+          if-no-files-found: error
+
+  windows:
+    name: Windows ${{ matrix.architecture }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            architecture: x86_64
+          - runner: windows-11-arm
+            architecture: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install tunnelrat, Nuitka and Inno Setup
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install . nuitka
+          choco install innosetup -y --no-progress
+
+      - name: Build standalone installer
+        run: python compile_script.py --operating-system windows --architecture ${{ matrix.architecture }} --build-mode standalone
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelrat-windows-${{ matrix.architecture }}-setup
+          path: dist/tunnelrat-*-setup.exe
+          if-no-files-found: error
+
+  attach:
+    name: Attach executables to release
+    needs: [linux, windows]
+    if: ${{ inputs.attach_to_release }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Attach executables to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: artifacts/**/*

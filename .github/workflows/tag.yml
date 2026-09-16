@@ -110,3 +110,14 @@ jobs:
     uses: ./.github/workflows/publish.yml
     with:
       ref: ${{ needs.tag.outputs.tag }}
+
+  binaries:
+    needs: tag
+    if: needs.tag.outputs.created == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build-executables.yml
+    with:
+      ref: ${{ needs.tag.outputs.tag }}
+      attach_to_release: true
+      release_tag: ${{ needs.tag.outputs.tag }}

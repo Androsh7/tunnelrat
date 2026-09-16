@@ -22,8 +22,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "build",
+    "nuitka",
     "pytest",
     "ruff",
+    "zstandard",
 ]
 
 [tool.ruff]
