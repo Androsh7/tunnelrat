@@ -10,10 +10,16 @@ from pathlib import Path
 from loguru import logger
 
 # Project libraries
-from tunnelrat.constants import VERSION, StepTypes
-from tunnelrat.help import format_all_enums_as_assignments, model_to_specification_table
-from tunnelrat.script import STEP_TO_MODEL, Script
-from tunnelrat.ssh.connection import SshConnectionConfig
+from tunnelrat.constants import VERSION, DocModelTypes, StepTypes
+from tunnelrat.docs.help import (
+    DOCUMENTED_MODELS,
+    format_all_enums_as_assignments,
+    format_all_model_tables,
+    format_docs_overview,
+    format_example_script,
+    model_to_specification_table,
+)
+from tunnelrat.script import Script
 from tunnelrat.ssh.connection_manager import connection_manager
 
 
@@ -29,12 +35,12 @@ async def main():
     )
 
     docs_parser = command_arg_subparser.add_parser(name="docs", help="Docs for writing scripts")
-    docs_parser.add_argument("--example", action="store_true", help="Print an example script")
+    docs_parser.add_argument("--example", action="store_true", help="Print a full example script")
     docs_parser.add_argument(
         "--model",
         default=None,
-        choices=[*list(StepTypes)],
-        help="Print documentation for specific models",
+        choices=[*list(StepTypes), *list(DocModelTypes)],
+        help="Print documentation for a specific model, or 'all' for every model",
     )
 
     args = parser.parse_args()
@@ -42,15 +48,20 @@ async def main():
     try:
         if args.command == "docs":
             if args.example:
-                print("placeholder example")
+                print(format_example_script())
                 sys.exit(0)
-            if args.model is not None:
-                print(format_all_enums_as_assignments() + "\n")
-                print(model_to_specification_table(model=STEP_TO_MODEL[args.model], title=args.model))
+            if args.model is None:
+                print(format_docs_overview())
                 sys.exit(0)
+            print(format_all_enums_as_assignments() + "\n")
+            if args.model == DocModelTypes.ALL:
+                print(format_all_model_tables())
+            else:
+                print(model_to_specification_table(model=DOCUMENTED_MODELS[args.model], title=args.model))
+            sys.exit(0)
 
         elif args.command == "script":
-            script = Script.from_yaml_path(Path("./script.yaml"))
+            script = Script.from_yaml_path(args.file)
             await script.run_script(dry_run=args.dry_run)
     except asyncio.CancelledError:
         logger.warning("User executed interrupted")

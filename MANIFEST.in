@@ -1,1 +1,2 @@
-VERSION.txt
+include VERSION.txt
+include tunnelrat/docs/example_script.yaml

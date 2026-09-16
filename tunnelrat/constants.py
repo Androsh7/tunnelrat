@@ -12,6 +12,10 @@ VERSION = (PARENT_DIRECTORY / "VERSION.txt").read_text().strip()
 DEFAULT_SSH_CONNECTION_TIMEOUT_S = 30
 DEFAULT_SSH_COMMAND_TIMEOUT_S = 300
 
+# Documentation
+LOADER_INJECTED_KEY = "loader_injected"
+MAX_DESCRIPTION_COLUMN_WIDTH = 60
+
 
 class OSTypes(StrEnum):
     WINDOWS = "windows"
@@ -40,6 +44,11 @@ class StepTypes(StrEnum):
     WAIT = "wait"
     BLOCK = "block"
     COMMENT = "comment"
+
+
+class DocModelTypes(StrEnum):
+    HOST = "host"
+    ALL = "all"
 
 
 ALL_ENUMS = [StepTypes, ForwardTypes, ExecutableTypes, OSTypes]

@@ -19,16 +19,28 @@ from tunnelrat.ssh.forward import ForwardConfig
 
 
 class WaitConfig(BaseModel):
-    time_s: int = Field(alias="time")
+    """Describe a wait step that pauses the script for a fixed time"""
+
+    time_s: int = Field(alias="time", description="Seconds to pause before moving on to the next step")
 
 
 class BlockConfig(BaseModel):
-    timeout_s: int | None = Field(alias="timeout", default=None)
-    exit_on_timeout: bool
+    """Describe a block step that holds the script open so tunnels stay up"""
+
+    timeout_s: int | None = Field(
+        alias="timeout",
+        default=None,
+        description="Seconds to block for, blocks until interrupted with CTRL + C when left out",
+    )
+    exit_on_timeout: bool = Field(
+        description="Whether reaching the timeout ends the script normally instead of raising",
+    )
 
 
 class CommentConfig(BaseModel):
-    body: str
+    """Describe a comment step that prints a message to the console"""
+
+    body: str = Field(description="Text to print when the step is reached")
 
 
 STEP_MODELS = CommandConfig | ForwardConfig | WaitConfig | BlockConfig | CommentConfig | BatchCommandConfig
@@ -43,12 +55,23 @@ STEP_TO_MODEL: dict[StepTypes, STEP_MODELS] = {
 
 
 class StepConfig(BaseModel):
-    step_number: int = Field(ge=1)
-    step_type: StepTypes
-    config: STEP_MODELS
+    """Wrap one step of a script with its position and the model describing it"""
+
+    step_number: int = Field(ge=1, description="Position of the step in the steps list, counted from one")
+    step_type: StepTypes = Field(description="Kind of step, taken from the single key of the step entry")
+    config: STEP_MODELS = Field(description="Settings of the step, validated against the model for its type")
 
     @classmethod
     def from_dict(cls, step_dict: dict, step_number: int):
+        """Return the step described by one entry of the steps list
+
+        Args:
+            step_dict: A single-key mapping of step type to the settings of that step
+            step_number: The position of the step in the steps list, counted from one
+
+        Raises:
+            ValueError: If the key of the mapping is not a known step type
+        """
         step_type = StepTypes(list(step_dict.keys())[0])
         config_model = STEP_TO_MODEL[step_type]
 
@@ -61,6 +84,8 @@ class StepConfig(BaseModel):
 
 @define
 class Script:
+    """Hold the hosts and the ordered steps parsed out of one script file"""
+
     host_list: list[SshConnectionConfig] = field(
         validator=validators.deep_iterable(
             member_validator=validators.instance_of(SshConnectionConfig),
@@ -76,6 +101,14 @@ class Script:
 
     @classmethod
     def from_yaml_path(cls, yaml_path: Path):
+        """Return the script described by one yaml file
+
+        Args:
+            yaml_path: The path of the yaml file holding the hosts and steps blocks
+
+        Raises:
+            KeyError: If the file has no hosts block or no steps block
+        """
         with open(file=yaml_path, mode="rb") as yaml_file:
             raw_text = yaml_file.read()
             script_dict = yaml.safe_load(raw_text)
@@ -98,6 +131,14 @@ class Script:
         )
 
     async def run_script(self, dry_run: bool = False):
+        """Open every host connection, run every step in order and then clean up
+
+        Args:
+            dry_run: Whether to walk the script without opening connections or running commands
+
+        Raises:
+            KeyError: If a step has a type that has no execution path
+        """
         for host_number, host in enumerate(self.host_list, start=1):
             logger.info(
                 f"Creating connection {host_number}/{len(self.host_list)} for host {host.name} ({host.username}@{host.host}:{host.port})"
