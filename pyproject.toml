@@ -29,20 +29,52 @@ dev = [
 [tool.ruff]
 target-version = "py310"
 line-length = 120
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
 select = [
-    "E", # Pycodestyle errors
-    "F", # Pyflakes
-    "I", # Isort
-    "PL", # Pylint
-    "UP", # Pyupgrade
+    "E",    # Pycodestyle errors
+    "F",    # Pyflakes
+    "I",    # Isort
+    "PL",   # Pylint
+    "UP",   # Pyupgrade
+    "D",    # docstring on every module, class, function, method
+    "N",    # pep8 naming
+    "TID",  # banned relative imports
+    "INP",  # every package directory has an __init__.py
+    "ERA",  # no commented-out code
+    "B",    # Bugbear: likely bugs and design problems
+    "SIM",  # Simplify: needlessly complex code
+    "C4",   # Comprehensions: prefer comprehensions over map/filter/list() calls
+    "RUF",  # Ruff-specific rules
+    "PT",   # Pytest style
+    "PTH",  # Prefer pathlib over os.path
+    "T20",  # No stray print/pprint calls
+]
+ignore = [
+    "D415", # no trailing period on the summary line
+    "D104", # __init__.py has no docstring
 ]
 
-[tool.pylint.format]
-max-line-length = 120
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "INP001", "PLR2004", "S101"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["*"]
+exclude = ["tests"]
 
 [tool.setuptools.dynamic]
 version = {file = ["VERSION.txt"]}
