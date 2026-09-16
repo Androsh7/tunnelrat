@@ -1,3 +1,5 @@
+"""Module entrypoint"""
+
 import asyncio
 
 from tunnelrat.main import main

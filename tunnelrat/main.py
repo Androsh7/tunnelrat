@@ -24,6 +24,7 @@ from tunnelrat.ssh.connection_manager import connection_manager
 
 
 async def main():
+    """Main function"""
     parser = ArgumentParser(prog="tunnelrat", description="SSH Connection and Forward Manager")
     parser.add_argument("--version", action="version", version=f"tunnelrat v{VERSION}")
     command_arg_subparser = parser.add_subparsers(title="command", dest="command", required=True)
@@ -69,7 +70,7 @@ async def main():
     finally:
         if len(connection_manager.connection_list) > 0:
             logger.warning("Not all connections were cleaned up, closing remaining connections")
-            await asyncio.run(connection_manager.close_all())
+            await connection_manager.close_all()
 
 
 if __name__ == "__main__":

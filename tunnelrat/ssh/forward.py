@@ -40,9 +40,15 @@ class ForwardConfig(BaseModel):
             The two ends of the tunnel separated by arrows pointing the way traffic flows
         """
         if self.forward_type == ForwardTypes.LOCAL:
-            return f'{self.local_host}:{self.local_port} -> "{self.connection_name}" -> {self.remote_host}:{self.remote_port}'
+            return (
+                f'{self.local_host}:{self.local_port} -> "{self.connection_name}" '
+                f"-> {self.remote_host}:{self.remote_port}"
+            )
         if self.forward_type == ForwardTypes.REMOTE:
-            return f'{self.local_host}:{self.local_port} <- "{self.connection_name}" <- {self.remote_host}:{self.remote_port}'
+            return (
+                f'{self.local_host}:{self.local_port} <- "{self.connection_name}" '
+                f"<- {self.remote_host}:{self.remote_port}"
+            )
         raise KeyError(f"Invalid forward type {self.forward_type}")
 
     def to_fabric_forward_kwargs(self) -> dict[str, int | str]:
