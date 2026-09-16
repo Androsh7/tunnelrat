@@ -16,6 +16,7 @@ dependencies = [
     "pydantic",
     "pydantic-config",
     "pyyaml",
+    "rich",
     "tabulate",
 ]
 

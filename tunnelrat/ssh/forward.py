@@ -31,21 +31,16 @@ class ForwardConfig(BaseModel):
     remote_port: int = Field(ge=1, le=65535, description="Port number of the remote end of the tunnel")
 
     def __str__(self) -> str:
-        """Return the tunnel drawn as an arrow from one end to the other
-
-        Raises:
-            KeyError: If the forward type is neither local nor remote
-
-        Returns:
-            The two ends of the tunnel separated by arrows pointing the way traffic flows
-        """
+        """Return the tunnel drawn as an arrow from one end to the other"""
         if self.forward_type == ForwardTypes.LOCAL:
             return (
+                "SSH forward: "
                 f'{self.local_host}:{self.local_port} -> "{self.connection_name}" '
                 f"-> {self.remote_host}:{self.remote_port}"
             )
         if self.forward_type == ForwardTypes.REMOTE:
             return (
+                "SSH forward: "
                 f'{self.local_host}:{self.local_port} <- "{self.connection_name}" '
                 f"<- {self.remote_host}:{self.remote_port}"
             )
@@ -69,10 +64,14 @@ class SshForward(BaseModel):
     """Hold one live tunnel and the fabric context manager keeping it open"""
 
     config: ForwardConfig
-    _fabric_connection: fabric.Connection | None = PrivateAttr()
+    _fabric_connection: fabric.Connection | None = PrivateAttr(default=None)
     _connection_lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
     _fabric_forward: contextlib._GeneratorContextManager | None = PrivateAttr(default=None)
     running: bool = Field(init=False, default=False)
+
+    def __str__(self) -> str:
+        """Return the tunnel drawn as an arrow from one end to the other"""
+        return str(self.config).replace("SSH forward: ", "")
 
     def _create_sync(self):
         """Open the tunnel on the calling thread
@@ -93,7 +92,7 @@ class SshForward(BaseModel):
                 raise ValueError(f"Invalid forward type {self.config.forward_type}")
 
             # Create the fabric forward
-            self._fabric_forward = forward_func(self.config.to_fabric_forward_kwargs())
+            self._fabric_forward = forward_func(**self.config.to_fabric_forward_kwargs())
 
             # Connect to the forward
             self._fabric_forward.__enter__()
@@ -101,7 +100,7 @@ class SshForward(BaseModel):
 
     async def create(self):
         """Open the tunnel without blocking the event loop"""
-        await asyncio.to_thread(self._start_sync)
+        await asyncio.to_thread(self._create_sync)
 
     def _close_sync(self):
         """Close the tunnel on the calling thread"""

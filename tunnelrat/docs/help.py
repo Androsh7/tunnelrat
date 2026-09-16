@@ -15,29 +15,18 @@ from tunnelrat.constants import (
     ALL_ENUMS,
     LOADER_INJECTED_KEY,
     MAX_DESCRIPTION_COLUMN_WIDTH,
-    DocModelTypes,
     StepTypes,
 )
 from tunnelrat.script import STEP_TO_MODEL
-from tunnelrat.ssh.connection import SshConnectionConfig
 
 EXAMPLE_SCRIPT_PACKAGE = "tunnelrat.docs"
 EXAMPLE_SCRIPT_FILENAME = "example_script.yaml"
 
-DOCUMENTED_MODELS: dict[str, type[BaseModel]] = {
-    **STEP_TO_MODEL,
-    DocModelTypes.HOST: SshConnectionConfig,
-}
 
 YAML_STRUCTURE = """Script structure:
-
-  hosts:              # one entry per SSH target, the key is the name steps refer to
-    <host name>:
-      <host key>: <value>
-
-  steps:              # an ordered list, each entry is a single-key mapping
-    - <step type>:
-        <step key>: <value>
+steps:              # steps in order
+  - <step type>:
+      <step key>: <value>
 """
 
 
@@ -119,9 +108,7 @@ def format_all_model_tables() -> str:
     Returns:
         The tables separated by blank lines
     """
-    return "\n\n".join(
-        model_to_specification_table(model=model, title=name) for name, model in DOCUMENTED_MODELS.items()
-    )
+    return "\n\n".join(model_to_specification_table(model=model, title=name) for name, model in STEP_TO_MODEL.items())
 
 
 def format_enum_as_assignment(enum_class: type[enum.Enum]) -> str:

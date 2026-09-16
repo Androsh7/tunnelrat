@@ -19,8 +19,6 @@ class CommandBaseConfig(BaseModel):
     )
     script: str = Field(description="Command line or script body to run on the host")
     sudo: bool = Field(default=False, description="Run the script through sudo using the host sudo_password")
-    stdout_print: bool = Field(default=False, description="Echo the standard output of the script to the console")
-    stderr_print: bool = Field(default=False, description="Echo the standard error of the script to the console")
 
 
 class CommandConfig(CommandBaseConfig):
@@ -30,13 +28,15 @@ class CommandConfig(CommandBaseConfig):
     stdout_file: Path | None = Field(default=None, description="Local file to write the standard output to")
     stderr_file: Path | None = Field(default=None, description="Local file to write the standard error to")
 
+    def __str__(self):
+        return f"Running command on {self.connection_name} using {self.executable}{' (sudo enabled)' if self.sudo else ''}\n{self.script}"
+
 
 class BatchCommandConfig(CommandBaseConfig):
     """Describe a batch step that runs one script on several hosts"""
 
     connection_name_list: list[str] = Field(
-        alias="via",
-        description="Names of the hosts from the hosts block to run the script on", min_length=2
+        alias="via", description="Names of the hosts from the hosts block to run the script on", min_length=2
     )
     output_dir: Path | None = Field(
         default=None,
@@ -44,6 +44,9 @@ class BatchCommandConfig(CommandBaseConfig):
     )
     stdout_output: bool = Field(default=False, description="Write the standard output of each host into output_dir")
     stderr_output: bool = Field(default=False, description="Write the standard error of each host into output_dir")
+
+    def __str__(self):
+        return f"Running command on ({', '.join(self.connection_name_list)}){' (sudo enabled)' if self.sudo else ''}:\n{self.script}"
 
     def to_command_config(self, connection_name: str) -> CommandConfig:
         """Returns a CommandConfig model for the given connection_name"""

@@ -5,7 +5,6 @@ import threading
 
 # Third-party libraries
 from attrs import define, field, validators
-from loguru import logger
 
 from tunnelrat.commands.linux import generate_linux_command
 from tunnelrat.commands.windows import generate_windows_command
@@ -55,16 +54,6 @@ class ConnectionManager:
             config.stdout_file.write_text(result.stdout)
         if config.stderr_file is not None:
             config.stderr_file.write_text(result.stderr)
-        if result.return_code != 0:
-            logger.warning(
-                f"Command exited with non-zero exit code ({result.return_code})\n"
-                f"script: {config.script}\n"
-                f"command: {command}\n"
-                f"stdout: {result.stdout.strip()}\n"
-                f"stderr: {result.stderr.strip()}"
-            )
-        else:
-            logger.info(f"Command exited successfully: {config.script}")
 
     def get_connection(self, name: str) -> SshConnection:
         for connection in self.connection_list:

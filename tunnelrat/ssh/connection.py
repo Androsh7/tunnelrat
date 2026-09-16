@@ -64,6 +64,14 @@ class SshConnectionConfig(BaseModel):
             "connect_timeout": self.ssh_connect_timeout_s,
         }
 
+    def __str__(self) -> str:
+        """Return the SSH target written as user, host and port
+
+        Returns:
+            The target in the form used in the step list
+        """
+        return f"SSH connection: {self.username}@{self.host}:{self.port}"
+
 
 class SshConnection(BaseModel):
     """Hold one live SSH session and every forward opened through it"""
@@ -84,6 +92,14 @@ class SshConnection(BaseModel):
             name=config.name,
             config=config,
         )
+
+    def __str__(self) -> str:
+        """Return the SSH target this connection was built from
+
+        Returns:
+            The target in the form used in the step list
+        """
+        return str(self.config).replace("SSH connection: ", "")
 
     def _create_connection_sync(self):
         """Open the SSH session on the calling thread"""
@@ -129,13 +145,15 @@ class SshConnection(BaseModel):
             The tunnel that was opened
         """
         assert self._fabric_connection is not None
+        forward = SshForward(config=forward_config)
+        forward._fabric_connection = self._fabric_connection
+
+        await forward.create()
+
         with self._lock:
-            forward = SshForward(
-                config=forward_config,
-                _fabric_connection=self._fabric_connection,
-            )
-            await forward.create()
             self._forward_list.append(forward)
+
+        return forward
 
     def get_forward_list(self) -> list[SshForward]:
         """Return every tunnel opened through this connection
@@ -173,9 +191,9 @@ class SshConnection(BaseModel):
                     break
             if forward_index is None:
                 return None
+            forward = self._forward_list.pop(forward_index)
 
-            await self._forward_list[forward_index].close()
-            await self._forward_list.pop(forward_index)
+        await forward.close()
 
     async def create_connection(self):
         """Open the SSH session without blocking the event loop"""

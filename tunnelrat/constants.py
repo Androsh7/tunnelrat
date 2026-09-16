@@ -38,17 +38,13 @@ class ForwardTypes(StrEnum):
 
 # Script
 class StepTypes(StrEnum):
+    CREATE_CONNECTION = "connect"
+    CREATE_FORWARD = "forward"
     COMMAND = "command"
     BATCH_COMMAND = "batch"
-    FORWARD = "forward"
     WAIT = "wait"
     BLOCK = "block"
     COMMENT = "comment"
-
-
-class DocModelTypes(StrEnum):
-    HOST = "host"
-    ALL = "all"
 
 
 ALL_ENUMS = [StepTypes, ForwardTypes, ExecutableTypes, OSTypes]
