@@ -1,14 +1,18 @@
 """Defines help commands for models"""
 
 # Standard libraries
-import enum
 import types
 from importlib.resources import files
 from typing import Any, Union, get_args, get_origin
 
 # Third-party libraries
 from pydantic import BaseModel
-from tabulate import tabulate
+from rich import box
+from rich.console import Group
+from rich.panel import Panel
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.text import Text
 
 # Project libraries
 from tunnelrat.constants import (
@@ -21,13 +25,17 @@ from tunnelrat.script import STEP_TO_MODEL
 
 EXAMPLE_SCRIPT_PACKAGE = "tunnelrat.docs"
 EXAMPLE_SCRIPT_FILENAME = "example_script.yaml"
+SYNTAX_THEME = "ansi_dark"
 
-
-YAML_STRUCTURE = """Script structure:
-steps:              # steps in order
+SCRIPT_STRUCTURE_BODY = """steps:              # steps in order
   - <step type>:
-      <step key>: <value>
-"""
+      <step key>: <value>"""
+
+USAGE_ROWS = [
+    ("tunnelrat docs --model <name>", "print the yaml keys of one model"),
+    ("tunnelrat docs --model all", "print the yaml keys of every model"),
+    ("tunnelrat docs --example", "print a full example script"),
+]
 
 
 def format_type(annotation: Any) -> str:
@@ -71,105 +79,101 @@ def is_loader_injected(field_info: Any) -> bool:
     return bool(extra.get(LOADER_INJECTED_KEY, False))
 
 
-def model_to_specification_table(model: type[BaseModel], title: str) -> str:
-    """Return the yaml keys of one model drawn as a titled table
+def build_model_table(model: type[BaseModel], title: str) -> Table:
+    """Return the yaml keys of one model drawn as a titled rich table
 
     Args:
         model: The model to describe
-        title: The heading to centre above the table
+        title: The heading shown above the table
 
     Returns:
         A table of yaml key, type, default and description, with loader injected fields left out
     """
-    rows = []
+    table = Table(title=title, box=box.ROUNDED, title_style="bold cyan", header_style="bold", expand=False)
+    table.add_column("key", style="green", no_wrap=True)
+    table.add_column("type", style="yellow")
+    table.add_column("default", style="magenta")
+    table.add_column("description", max_width=MAX_DESCRIPTION_COLUMN_WIDTH)
     for field_name, field_info in model.model_fields.items():
         if is_loader_injected(field_info):
             continue
         yaml_key = field_info.alias or field_name
         default = "(required)" if field_info.is_required() else repr(field_info.default)
-        rows.append([yaml_key, format_type(field_info.annotation), default, field_info.description or ""])
-    table_string = tabulate(
-        rows,
-        headers=["key", "type", "default", "description"],
-        tablefmt="pretty",
-        colalign=("left", "left", "left", "left"),
-        maxcolwidths=[None, None, None, MAX_DESCRIPTION_COLUMN_WIDTH],
-    )
-    table_lines = table_string.splitlines()
-    border_line = table_lines[0]
-    inner_width = len(border_line) - 2
-    title_line = f"|{title.center(inner_width)}|"
-    return "\n".join([border_line, title_line, *table_lines])
+        table.add_row(yaml_key, format_type(field_info.annotation), default, field_info.description or "")
+    return table
 
 
-def format_all_model_tables() -> str:
-    """Return a table for every documented model, steps first and the host model last
+def build_all_model_tables() -> Group:
+    """Return a table for every documented model stacked with a blank line between each
 
     Returns:
-        The tables separated by blank lines
+        A group holding one table per step model
     """
-    return "\n\n".join(model_to_specification_table(model=model, title=name) for name, model in STEP_TO_MODEL.items())
+    renderables = []
+    for step_type, model in STEP_TO_MODEL.items():
+        renderables.append(build_model_table(model=model, title=step_type.value))
+        renderables.append(Text())
+    return Group(*renderables)
 
 
-def format_enum_as_assignment(enum_class: type[enum.Enum]) -> str:
-    """Return one enum written as a name and the list of values it accepts
-
-    Args:
-        enum_class: The enum to write out
+def build_enum_table() -> Table:
+    """Return every enum a script can use drawn as a rich table
 
     Returns:
-        The enum name followed by every value it accepts
+        A table of enum name and the values it accepts
     """
-    return f"{enum_class.__name__} = {[member.value for member in enum_class]}"
+    table = Table(title="Enums", box=box.SIMPLE_HEAVY, title_style="bold cyan", header_style="bold", expand=False)
+    table.add_column("enum", style="green", no_wrap=True)
+    table.add_column("accepted values", style="yellow")
+    for enum_class in ALL_ENUMS:
+        table.add_row(enum_class.__name__, ", ".join(member.value for member in enum_class))
+    return table
 
 
-def format_all_enums_as_assignments() -> str:
-    """Return every enum a script can use written as a list of accepted values
+def build_usage_table() -> Table:
+    """Return the docs command examples drawn as a rich table
 
     Returns:
-        One line per enum under a heading
+        A table of example invocation and what it prints
     """
-    return "Enums:\n" + "\n".join(f" - {format_enum_as_assignment(enum_class)}" for enum_class in ALL_ENUMS)
+    table = Table(title="Usage", box=box.SIMPLE, title_style="bold cyan", show_header=False, expand=False)
+    table.add_column(style="green", no_wrap=True)
+    table.add_column()
+    for invocation, summary in USAGE_ROWS:
+        table.add_row(invocation, summary)
+    return table
 
 
-def format_yaml_structure() -> str:
-    """Return the skeleton of a script file with the two top level blocks
+def build_example_script() -> Syntax:
+    """Return the annotated example script shipped with the package as highlighted yaml
 
     Returns:
-        The hosts and steps blocks with a comment on each
+        The text of the example script file ready to print
     """
-    return YAML_STRUCTURE
+    text = (files(EXAMPLE_SCRIPT_PACKAGE) / EXAMPLE_SCRIPT_FILENAME).read_text(encoding="utf-8")
+    return Syntax(text, "yaml", theme=SYNTAX_THEME, background_color="default")
 
 
-def format_example_script() -> str:
-    """Return the annotated example script shipped with the package
-
-    Returns:
-        The text of the example script file
-    """
-    return (files(EXAMPLE_SCRIPT_PACKAGE) / EXAMPLE_SCRIPT_FILENAME).read_text(encoding="utf-8")
-
-
-def format_docs_overview() -> str:
-    """Return the page printed when docs is asked for without any flags
+def build_docs_overview() -> Group:
+    """Return the page shown when docs is asked for without any flags
 
     Returns:
-        The script structure, the enums, the models that can be asked about and where to find an example
+        The script structure, the enums, the step types and where to find an example
     """
     step_names = ", ".join(step_type.value for step_type in StepTypes)
-    model_lines = "\n".join(
-        [
-            "Models:",
-            f" - step types: {step_names}",
-        ]
+    structure = Panel(
+        Syntax(SCRIPT_STRUCTURE_BODY, "yaml", theme=SYNTAX_THEME, background_color="default"),
+        title="Script structure",
+        border_style="cyan",
+        expand=False,
     )
-    usage_rows = [
-        ("tunnelrat docs --model <name>", "print the yaml keys of one model"),
-        ("tunnelrat docs --model all", "print the yaml keys of every model"),
-        ("tunnelrat docs --example", "print a full example script"),
-    ]
-    invocation_width = max(len(invocation) for invocation, _ in usage_rows)
-    usage_lines = "\n".join(
-        ["Usage:", *(f" - {invocation.ljust(invocation_width)}   {summary}" for invocation, summary in usage_rows)]
+    step_types_line = Text.assemble(("Step types: ", "bold"), (step_names, "yellow"))
+    return Group(
+        structure,
+        Text(),
+        build_enum_table(),
+        Text(),
+        step_types_line,
+        Text(),
+        build_usage_table(),
     )
-    return "\n\n".join([format_yaml_structure().rstrip(), format_all_enums_as_assignments(), model_lines, usage_lines])

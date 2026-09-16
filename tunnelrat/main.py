@@ -13,11 +13,11 @@ from rich.live import Live
 # Project libraries
 from tunnelrat.constants import VERSION, StepTypes
 from tunnelrat.docs.help import (
-    format_all_enums_as_assignments,
-    format_all_model_tables,
-    format_docs_overview,
-    format_example_script,
-    model_to_specification_table,
+    build_all_model_tables,
+    build_docs_overview,
+    build_enum_table,
+    build_example_script,
+    build_model_table,
 )
 from tunnelrat.exceptions import TunnelratBackendAbortError
 from tunnelrat.script import STEP_TO_MODEL, Script
@@ -39,7 +39,7 @@ async def main():
     docs_parser.add_argument(
         "--model",
         default=None,
-        choices=[StepTypes, "all"],
+        choices=[*StepTypes, "all"],
         help="Print documentation for a specific model, or 'all' for every model",
     )
 
@@ -51,16 +51,16 @@ async def main():
 
     if args.command == "docs":
         if args.example:
-            sys.stdout.write(format_example_script() + "\n")
+            console.print(build_example_script())
             sys.exit(0)
         if args.model is None:
-            sys.stdout.write(format_docs_overview() + "\n")
+            console.print(build_docs_overview())
             sys.exit(0)
-        sys.stdout.write(format_all_enums_as_assignments() + "\n\n")
+        console.print(build_enum_table())
         if args.model == "all":
-            sys.stdout.write(format_all_model_tables() + "\n")
+            console.print(build_all_model_tables())
         else:
-            sys.stdout.write(model_to_specification_table(model=STEP_TO_MODEL[args.model], title=args.model) + "\n")
+            console.print(build_model_table(model=STEP_TO_MODEL[args.model], title=args.model))
         sys.exit(0)
 
     elif args.command == "script":
