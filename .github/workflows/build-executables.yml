@@ -46,8 +46,6 @@ jobs:
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
-    container:
-      image: docker.io/androsh7/nuitka-compiler:latest-${{ matrix.image_architecture }}-${{ matrix.image_libc }}-py3.13
     strategy:
       fail-fast: false
       matrix:
@@ -73,20 +71,22 @@ jobs:
             library_c: musl
             image_libc: musl-1.2
     steps:
+      # The compiler images ship an old glibc/musl that cannot run the Node-based
+      # GitHub Actions, so checkout and upload happen on the host and only the
+      # compilation runs inside the image via docker run.
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Install tunnelrat and its dependencies
-        shell: sh
+      - name: Build onefile executable in the compiler image
         run: |
-          python3 -m pip install --upgrade pip
-          python3 -m pip install .
-
-      - name: Build onefile executable
-        shell: sh
-        run: python3 compile_script.py --operating-system linux --architecture ${{ matrix.architecture }} --library-c ${{ matrix.library_c }} --build-mode onefile
+          docker run --rm \
+            --volume "${{ github.workspace }}:/src" \
+            --workdir /src \
+            --env PIP_BREAK_SYSTEM_PACKAGES=1 \
+            "docker.io/androsh7/nuitka-compiler:latest-${{ matrix.image_architecture }}-${{ matrix.image_libc }}-py3.13" \
+            sh -c 'python3 -m pip install . && python3 compile_script.py --operating-system linux --architecture ${{ matrix.architecture }} --library-c ${{ matrix.library_c }} --build-mode onefile'
 
       - name: Upload executable
         uses: actions/upload-artifact@v4
