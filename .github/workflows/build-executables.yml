@@ -122,11 +122,12 @@ jobs:
       - name: Upgrade pip
         run: python -m pip install --upgrade pip
 
-      # The latest cryptography release ships no win_arm64 wheel, so pip would build it
-      # from source (needing Rust and OpenSSL) and fail. Pin to a release that does.
+      # cryptography ships a win_arm64 wheel only for 46.0.0 through 46.0.3; newer releases
+      # would be built from source (needing Rust and OpenSSL) and fail. Pin the newest
+      # version that has the wheel and forbid a source build so a miss fails loudly.
       - name: Preinstall cryptography wheel on Windows arm64
         if: matrix.architecture == 'arm64'
-        run: python -m pip install "cryptography>=46,<47"
+        run: python -m pip install --only-binary=cryptography "cryptography==46.0.3"
 
       - name: Install tunnelrat and Nuitka
         run: python -m pip install . nuitka
