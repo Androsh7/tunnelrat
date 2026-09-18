@@ -144,7 +144,7 @@ jobs:
       # executable fails here rather than shipping in the installer.
       - name: Smoke-test the standalone executable
         run: |
-          $executable = "dist/tunnelrat.dist/tunnelrat.exe"
+          $executable = Resolve-Path "dist/tunnelrat.dist/tunnelrat.exe"
           $output = & $executable --version
           if ($LASTEXITCODE -ne 0) { throw "tunnelrat --version exited with $LASTEXITCODE" }
           Write-Host $output
