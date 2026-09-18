@@ -194,6 +194,7 @@ class BuildConfiguration:
             "nuitka",
             "--standalone",
             "--remove-output",
+            f"--include-distribution-metadata={PROJECT_NAME}",
             f"--output-dir={self.output_directory}",
         ]
         if self.build_mode is BuildMode.ONEFILE:
@@ -201,6 +202,10 @@ class BuildConfiguration:
             command.append(f"--output-filename={self.onefile_name}")
         else:
             command.append(f"--output-filename={STANDALONE_EXECUTABLE_NAME}")
+        if self.operating_system is OperatingSystem.WINDOWS:
+            command.append(f"--windows-product-name={PROJECT_NAME}")
+            command.append(f"--windows-product-version={read_version()}")
+            command.append(f"--windows-file-version={read_version()}")
         if self.assume_yes_for_downloads:
             command.append("--assume-yes-for-downloads")
         command.extend(f"--include-data-file={data_file}" for data_file in INCLUDED_DATA_FILES)

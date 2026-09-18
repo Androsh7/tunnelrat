@@ -1,7 +1,7 @@
 """Defines the connection_manager singleton"""
 
 # Standard libraries
-import threading
+import asyncio
 
 # Third-party libraries
 from attrs import define, field, validators
@@ -28,7 +28,7 @@ class ConnectionManager:
             iterable_validator=validators.instance_of(list),
         ),
     )
-    _lock: threading.Lock = field(init=False, factory=threading.Lock, validator=validators.instance_of(threading.Lock))
+    _lock: asyncio.Lock = field(init=False, factory=asyncio.Lock, validator=validators.instance_of(asyncio.Lock))
 
     async def create_connection(self, config: SshConnectionConfig):
         """Open one ssh connection and keep track of it
@@ -36,7 +36,7 @@ class ConnectionManager:
         Args:
             config: The host to connect to
         """
-        with self._lock:
+        async with self._lock:
             connection = SshConnection.from_config(config)
             await connection.create_connection()
             self.connection_list.append(connection)
@@ -47,7 +47,7 @@ class ConnectionManager:
         Args:
             config: The tunnel to open, naming the host to tunnel through
         """
-        with self._lock:
+        async with self._lock:
             connection = self.get_connection(config.connection_name)
             await connection.create_forward(config)
 
@@ -94,7 +94,7 @@ class ConnectionManager:
 
     async def close_all(self):
         """Close every open connection and forget them all"""
-        with self._lock:
+        async with self._lock:
             for connection in self.connection_list:
                 await connection.close()
             self.connection_list.clear()

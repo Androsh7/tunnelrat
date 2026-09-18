@@ -4,7 +4,7 @@
 from pathlib import Path
 
 # Third-party libraries
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # Project libraries
 from tunnelrat.constants import ExecutableTypes
@@ -46,6 +46,17 @@ class BatchCommandConfig(CommandBaseConfig):
     )
     stdout_output: bool = Field(default=False, description="Write the standard output of each host into output_dir")
     stderr_output: bool = Field(default=False, description="Write the standard error of each host into output_dir")
+
+    @model_validator(mode="after")
+    def require_output_dir_when_capturing(self):
+        """Return the model after checking that output_dir is set when output is captured
+
+        Raises:
+            ValueError: If stdout_output or stderr_output is set without an output_dir
+        """
+        if (self.stdout_output or self.stderr_output) and self.output_dir is None:
+            raise ValueError("output_dir is required when stdout_output or stderr_output is set")
+        return self
 
     def __str__(self) -> str:
         """Return the batch command described as a header line and the script body

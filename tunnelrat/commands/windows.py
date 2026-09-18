@@ -24,7 +24,8 @@ def create_powershell_command(script: str, executable: str = "powershell") -> st
 
 def create_python_command(script: str, executable: str = "python") -> str:
     """Assembles a python command using the raw script"""
-    return f"{executable} -c \"import base64; exec(base64.b64decode('{b64encode(script)}'))\""
+    encoded_script = b64encode(script.encode("utf-8")).decode("utf-8")
+    return f"{executable} -c \"import base64; exec(base64.b64decode('{encoded_script}'))\""
 
 
 def generate_windows_command(script: str, executable: ExecutableTypes | None = None) -> str:

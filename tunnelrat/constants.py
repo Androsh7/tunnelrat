@@ -1,12 +1,10 @@
 """Defines constants"""
 
 # Standard libraries
+import importlib.metadata
 from enum import StrEnum
-from pathlib import Path
 
-PARENT_DIRECTORY = Path(__file__).parent.parent
-
-VERSION = (PARENT_DIRECTORY / "VERSION.txt").read_text().strip()
+VERSION = importlib.metadata.version("tunnelrat")
 
 # SSH
 DEFAULT_SSH_CONNECTION_TIMEOUT_S = 30

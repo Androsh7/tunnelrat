@@ -88,10 +88,7 @@ class SshConnection(BaseModel):
         Args:
             config: The host to connect to when create_connection is called
         """
-        return cls(
-            name=config.name,
-            config=config,
-        )
+        return cls(config=config)
 
     def __str__(self) -> str:
         """Return the SSH target this connection was built from
