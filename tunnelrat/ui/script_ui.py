@@ -68,7 +68,7 @@ class ScriptUI:
 
     script: Script = field(validator=validators.instance_of(Script))
 
-    def render(self) -> Panel[Table[Group[Text, Table], Group[Text, Table]]]:
+    def render(self) -> Panel:
         """Returns the full script runner UI"""
         columns = Table.grid(expand=True, padding=(0, 2))
         columns.add_column(ratio=2)
@@ -81,6 +81,6 @@ class ScriptUI:
             expand=True,
         )
 
-    def __rich__(self) -> Panel[Table[Group[Text, Table], Group[Text, Table]]]:
+    def __rich__(self) -> Panel:
         """Method for triggering auto-refresh rendering"""
         return self.render()
