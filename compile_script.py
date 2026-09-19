@@ -19,12 +19,6 @@ DEFAULT_OUTPUT_DIRECTORY = REPOSITORY_ROOT / "dist"
 PROJECT_NAME = "tunnelrat"
 WINDOWS_EXECUTABLE_SUFFIX = ".exe"
 
-# Data the compiled package reads at runtime, mapped as source=destination inside the payload
-INCLUDED_DATA_FILES = (
-    "VERSION.txt=VERSION.txt",
-    "tunnelrat/docs/example_script.yaml=docs/example_script.yaml",
-)
-
 GLIBC_LIBRARY_NAME = "glibc"
 
 # The folder and executable Nuitka produces for a standalone build of the entry point
@@ -208,7 +202,7 @@ class BuildConfiguration:
             command.append(f"--windows-file-version={read_version()}")
         if self.assume_yes_for_downloads:
             command.append("--assume-yes-for-downloads")
-        command.extend(f"--include-data-file={data_file}" for data_file in INCLUDED_DATA_FILES)
+        command.append(f"--include-package-data={PROJECT_NAME}")
         command.append(str(ENTRY_POINT))
         return command
 
