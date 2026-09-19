@@ -27,7 +27,7 @@ from tunnelrat.ui.script_ui import ScriptUI
 
 async def main():
     """Main function"""
-    parser = ArgumentParser(prog="tunnelrat", description="SSH Connection and Forward Manager")
+    parser = ArgumentParser(prog="tunnelrat", description="SSH scripting utility")
     parser.add_argument("--version", action="version", version=f"tunnelrat v{VERSION}")
     command_arg_subparser = parser.add_subparsers(title="command", dest="command", required=True)
 
