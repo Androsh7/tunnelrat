@@ -1,31 +1,35 @@
-# Example tunnelrat script covering every host option and every step type.
+# Example tunnelrat script covering every step type.
 # Run it with: tunnelrat script --file example_script.yaml
 
-hosts:
-  # The key of each entry is the name that steps refer to with "via".
-  bastion:
-    host: 10.0.0.10
-    port: 22
-    os: linux
-    user: deploy
-    password: deploy_password
-    sudo_password: deploy_password
-    timeout: 30
-
-  database:
-    host: 10.0.1.25
-    os: linux
-    user: dbadmin
-    ssh_key_path: ~/.ssh/id_ed25519
-    ssh_key_password: key_passphrase
-
-  jumpbox:
-    host: 10.0.0.11
-    os: windows
-    user: Administrator
-    password: administrator_password
-
 steps:
+  # Connect to a host
+  - connect:
+      name: bastion
+      host: 10.0.0.10
+      port: 22
+      os: linux
+      user: deploy
+      password: deploy_password
+      sudo_password: deploy_password
+      timeout: 30
+
+  # Connect to a host
+  - connect:
+      name: database
+      host: 10.0.1.25
+      os: linux
+      user: dbadmin
+      ssh_key_path: ~/.ssh/id_ed25519
+      ssh_key_password: key_passphrase
+
+  # Connect to a host
+  - connect:
+      name: jumpbox
+      host: 10.0.0.11
+      os: windows
+      user: Administrator
+      password: administrator_password
+
   # Print a message to the console
   - comment:
       body: Starting the nightly maintenance run
