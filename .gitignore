@@ -1,0 +1,23 @@
+# VS Code
+.vscode
+
+# Python
+.venv/
+__pycache__/
+build/
+dist/
+*.egg-info/
+
+# Nuitka
+*.exe
+*.bin
+*.build
+*.dist
+*.onefile-build
+
+# UV
+uv.lock
+
+# Project
+script.yaml
+script.yml

@@ -1,0 +1,99 @@
+# Example tunnelrat script covering every step type.
+# Run it with: tunnelrat script --file example_script.yaml
+
+steps:
+  # Connect to a host
+  - connect:
+      name: bastion
+      host: 10.0.0.10
+      port: 22
+      os: linux
+      user: deploy
+      password: deploy_password
+      sudo_password: deploy_password
+      timeout: 30
+
+  # Connect to a host
+  - connect:
+      name: database
+      host: 10.0.1.25
+      os: linux
+      user: dbadmin
+      ssh_key_path: ~/.ssh/id_ed25519
+      ssh_key_password: key_passphrase
+
+  # Connect to a host
+  - connect:
+      name: jumpbox
+      host: 10.0.0.11
+      os: windows
+      user: Administrator
+      password: administrator_password
+
+  # Print a message to the console
+  - comment:
+      body: Starting the nightly maintenance run
+
+  # Run one script on one host
+  - command:
+      via: bastion
+      script: uptime
+      stdout_print: true
+
+  # Run a script through sudo using the sudo_password of the host
+  - command:
+      via: bastion
+      executable: bash
+      script: systemctl restart nginx
+      sudo: true
+      stderr_print: true
+
+  # Capture the output of a command into local files
+  - command:
+      via: database
+      script: pg_isready
+      stdout_file: ./output/database_stdout.txt
+      stderr_file: ./output/database_stderr.txt
+
+  # Run the same script on several hosts at once
+  - batch:
+      via:
+        - bastion
+        - database
+      executable: sh
+      script: df -h /
+      output_dir: ./output/disk_usage
+      stdout_output: true
+      stderr_output: true
+
+  # Reach the database port through the bastion as if it were local
+  - forward:
+      type: local
+      via: bastion
+      local_host: 127.0.0.1
+      local_port: 15432
+      remote_host: 10.0.1.25
+      remote_port: 5432
+
+  # Expose a local service on the jumpbox
+  - forward:
+      type: remote
+      via: jumpbox
+      local_host: 127.0.0.1
+      local_port: 8080
+      remote_host: 127.0.0.1
+      remote_port: 18080
+
+  # Pause before using the tunnel
+  - wait:
+      time: 5
+
+  - command:
+      via: bastion
+      script: echo "the tunnels are up"
+      stdout_print: true
+
+  # Hold the tunnels open, exit with CTRL + C
+  - block:
+      timeout: 3600
+      raise_on_timeout: true

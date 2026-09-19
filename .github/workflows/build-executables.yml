@@ -1,0 +1,177 @@
+# Compile tunnelrat into distributable executables:
+#   - Linux: a onefile binary for {glibc, musl} x {x86_64, arm64}, built inside the
+#     androsh7/nuitka-compiler images (aarch64 built on native ARM runners).
+#   - Windows: a --standalone build for {x86_64, arm64}, wrapped in an Inno Setup installer.
+#
+# On a merge to main this builds every target and uploads it as a workflow artifact.
+# tag.yml also calls this workflow with attach_to_release=true once it has cut a release,
+# so the same executables are attached to the GitHub Release for the new tag.
+
+name: Build executables
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    # Version bumps are handled by tag.yml, which calls this workflow to build and attach.
+    paths-ignore:
+      - VERSION.txt
+      - CHANGELOG.md
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Ref (tag or SHA) to build
+        type: string
+        required: false
+        default: ""
+      attach_to_release:
+        description: Attach the built executables to a GitHub Release
+        type: boolean
+        required: false
+        default: false
+      release_tag:
+        description: Tag of the release to attach the executables to
+        type: string
+        required: false
+        default: ""
+
+concurrency:
+  group: build-executables-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.architecture }} ${{ matrix.library_c }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            architecture: x86_64
+            image_architecture: x86_64
+            library_c: glibc
+            image_libc: glibc-2.17
+          - runner: ubuntu-latest
+            architecture: x86_64
+            image_architecture: x86_64
+            library_c: musl
+            image_libc: musl-1.2
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+            image_architecture: aarch64
+            library_c: glibc
+            image_libc: glibc-2.17
+          - runner: ubuntu-24.04-arm
+            architecture: arm64
+            image_architecture: aarch64
+            library_c: musl
+            image_libc: musl-1.2
+    steps:
+      # The compiler images ship an old glibc/musl that cannot run the Node-based
+      # GitHub Actions, so checkout and upload happen on the host and only the
+      # compilation runs inside the image via docker run.
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      # The onefile is smoke-tested inside the compiler image, the one environment
+      # its old glibc/musl is guaranteed to run against; the host runner may not.
+      - name: Build and smoke-test onefile executable in the compiler image
+        run: |
+          docker run --rm \
+            --volume "${{ github.workspace }}:/src" \
+            --workdir /src \
+            --env PIP_BREAK_SYSTEM_PACKAGES=1 \
+            "docker.io/androsh7/nuitka-compiler:latest-${{ matrix.image_architecture }}-${{ matrix.image_libc }}-py3.13" \
+            sh -c 'python3 -m pip install . && python3 compile_script.py --operating-system linux --architecture ${{ matrix.architecture }} --library-c ${{ matrix.library_c }} --build-mode onefile && executable="$(ls dist/tunnelrat-*-linux-*)" && chmod +x "$executable" && "$executable" --version | tee /tmp/tunnelrat-version.txt && grep -q "tunnelrat v" /tmp/tunnelrat-version.txt'
+
+      - name: Upload executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelrat-linux-${{ matrix.architecture }}-${{ matrix.library_c }}
+          path: dist/tunnelrat-*-linux-*
+          if-no-files-found: error
+
+  windows:
+    name: Windows ${{ matrix.architecture }}
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            architecture: x86_64
+          - runner: windows-11-arm
+            architecture: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      # cryptography ships a win_arm64 wheel only for 46.0.0 through 46.0.3; newer releases
+      # would be built from source (needing Rust and OpenSSL) and fail. Pin the newest
+      # version that has the wheel and forbid a source build so a miss fails loudly.
+      - name: Preinstall cryptography wheel on Windows arm64
+        if: matrix.architecture == 'arm64'
+        run: python -m pip install --only-binary=cryptography "cryptography==46.0.3"
+
+      - name: Install tunnelrat and Nuitka
+        run: python -m pip install . nuitka
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Build standalone installer
+        run: python compile_script.py --operating-system windows --architecture ${{ matrix.architecture }} --build-mode standalone
+
+      # Run the compiled program before publishing so a build that produces a broken
+      # executable fails here rather than shipping in the installer.
+      - name: Smoke-test the standalone executable
+        run: |
+          $executable = Resolve-Path "dist/main.dist/tunnelrat.exe"
+          $output = & $executable --version
+          if ($LASTEXITCODE -ne 0) { throw "tunnelrat --version exited with $LASTEXITCODE" }
+          Write-Host $output
+          if ($output -notmatch "tunnelrat v") { throw "Unexpected --version output: $output" }
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunnelrat-windows-${{ matrix.architecture }}-setup
+          path: dist/tunnelrat-*-setup.exe
+          if-no-files-found: error
+
+  attach:
+    name: Attach executables to release
+    needs: [linux, windows]
+    if: ${{ inputs.attach_to_release }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Attach executables to the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          files: artifacts/**/*

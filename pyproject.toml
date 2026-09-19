@@ -1,0 +1,82 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tunnelrat"
+dynamic = ["version"]
+description = "SSH scripting utility"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = [
+    "attrs",
+    "fabric",
+    "loguru",
+    "pydantic",
+    "pydantic-config",
+    "pyyaml",
+    "rich",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "nuitka",
+    "pytest",
+    "ruff",
+    "zstandard",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = [
+    "E",    # Pycodestyle errors
+    "F",    # Pyflakes
+    "I",    # Isort
+    "PL",   # Pylint
+    "UP",   # Pyupgrade
+    "D",    # docstring on every module, class, function, method
+    "N",    # pep8 naming
+    "TID",  # banned relative imports
+    "INP",  # every package directory has an __init__.py
+    "ERA",  # no commented-out code
+    "B",    # Bugbear: likely bugs and design problems
+    "SIM",  # Simplify: needlessly complex code
+    "C4",   # Comprehensions: prefer comprehensions over map/filter/list() calls
+    "RUF",  # Ruff-specific rules
+    "PT",   # Pytest style
+    "PTH",  # Prefer pathlib over os.path
+    "T20",  # No stray print/pprint calls
+]
+ignore = [
+    "D415", # no trailing period on the summary line
+    "D104", # __init__.py has no docstring
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "INP001", "PLR2004", "S101"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["*"]
+exclude = ["tests"]
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION.txt"]}
