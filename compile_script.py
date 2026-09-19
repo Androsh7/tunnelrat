@@ -236,6 +236,11 @@ def build_installer_script(configuration: BuildConfiguration) -> str:
             f"ArchitecturesInstallIn64BitMode={architecture_identifier}",
             "Compression=lzma2",
             "SolidCompression=yes",
+            "ChangesEnvironment=yes",
+            "",
+            "[Tasks]",
+            'Name: "addtopath"; Description: "Add tunnelrat to the PATH environment variable"; '
+            'GroupDescription: "Environment:"',
             "",
             "[Files]",
             f'Source: "{configuration.distribution_directory}\\*"; DestDir: "{{app}}"; '
@@ -243,6 +248,25 @@ def build_installer_script(configuration: BuildConfiguration) -> str:
             "",
             "[Icons]",
             f'Name: "{{group}}\\{PROJECT_NAME}"; Filename: "{{app}}\\{STANDALONE_EXECUTABLE_NAME}"',
+            "",
+            "[Registry]",
+            'Root: HKLM; Subkey: "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment"; '
+            'ValueType: expandsz; ValueName: "Path"; ValueData: "{olddata};{app}"; '
+            "Tasks: addtopath; Check: NeedsAddPath('{app}')",
+            "",
+            "[Code]",
+            "function NeedsAddPath(Param: string): Boolean;",
+            "var",
+            "  ExistingPath: string;",
+            "begin",
+            "  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, "
+            "'SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment', 'Path', ExistingPath) then",
+            "  begin",
+            "    Result := True;",
+            "    exit;",
+            "  end;",
+            "  Result := Pos(';' + Uppercase(ExpandConstant(Param)) + ';', ';' + Uppercase(ExistingPath) + ';') = 0;",
+            "end;",
             "",
         ]
     )
