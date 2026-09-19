@@ -75,8 +75,7 @@ addopts = "-ra --strict-markers"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["*"]
-exclude = ["tests"]
+include = ["tunnelrat*"]
 
 [tool.setuptools.dynamic]
 version = {file = ["VERSION.txt"]}

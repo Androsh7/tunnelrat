@@ -101,16 +101,6 @@ jobs:
           body: ${{ steps.notes.outputs.body }}
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}
 
-  publish:
-    needs: tag
-    if: needs.tag.outputs.created == 'true'
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/publish.yml
-    with:
-      ref: ${{ needs.tag.outputs.tag }}
-
   binaries:
     needs: tag
     if: needs.tag.outputs.created == 'true'
